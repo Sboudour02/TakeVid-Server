@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VidGet - Professional Video Downloader</title>
+  <link rel="stylesheet" href="popup.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="glass-container">
+    <!-- Header with Branding -->
+    <div class="app-header">
+      <div class="brand">
+        <img src="icons/icon48.png" alt="Logo" class="app-icon" id="app-logo">
+        <span class="app-name">VidGet</span>
+      </div>
+      <div class="header-actions">
+        <button id="btn-header-back" class="icon-btn-secondary hidden" title="Back">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+        </button>
+        <button id="btn-show-history" class="icon-btn-secondary" title="History">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" fill="currentColor"/></svg>
+        </button>
+        <div class="status-dot-container">
+            <div class="status-dot pulse"></div>
+            <span class="status-text">Ready</span>
+        </div>
+      </div>
+    </div>
+
+    <main class="content">
+        <!-- Input State -->
+        <div id="state-input" class="state-view">
+            <h1 class="luxury-title">Get the Clip. Save the Moment.</h1>
+            <p class="welcome-subtitle">
+                Paste your video URL
+                <span class="inline-icons">
+                    <img src="https://www.google.com/s2/favicons?domain=youtube.com&sz=32" title="YouTube" class="mini-icon">
+                    <img src="https://www.google.com/s2/favicons?domain=tiktok.com&sz=32" title="TikTok" class="mini-icon">
+                </span>
+            </p>
+            
+            <div class="input-section">
+                <div class="smart-input-box">
+                    <input type="text" id="url-input" placeholder="https://..." autocomplete="off">
+                    <button id="btn-paste" class="paste-btn" title="Paste Link">
+                        <svg viewBox="0 0 24 24" width="18" height="18"><path d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z" fill="currentColor"/></svg>
+                    </button>
+                </div>
+                
+                <button id="btn-analyze" class="analyze-btn-main">
+                    <span>Analyze Link</span>
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M16.172 11l-5.364-5.364 1.414-1.414L20 12l-7.778 7.778-1.414-1.414L16.172 13H4v-2z" fill="currentColor"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="state-loading" class="state-view hidden">
+            <div class="modern-loader">
+                <div class="spinner"></div>
+                <p>Gathering formats...</p>
+            </div>
+        </div>
+
+        <!-- Result State -->
+        <div id="state-result" class="state-view hidden">
+            <div class="video-preview-card">
+                <div class="thumb-wrapper">
+                    <img id="video-thumb" src="" alt="Thumbnail">
+                    <div class="duration-badge" id="video-duration">0:00</div>
+                </div>
+                
+                <div class="video-info">
+                    <h2 id="video-title" class="truncate-2">Video Title</h2>
+                    <p id="video-uploader" class="uploader-name">Uploader Name</p>
+                </div>
+
+                <div class="selection-control">
+                    <div class="custom-dropdown" id="dropdown-parent">
+                        <button id="btn-dropdown-toggle" class="dropdown-trigger">
+                            <div class="trigger-left">
+                                <span class="format-badge" id="selected-quality-badge">1080p</span>
+                                <span id="selected-size-text">Calculating...</span>
+                            </div>
+                            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M7 10l5 5 5-5z" fill="currentColor"/></svg>
+                        </button>
+
+                        <div id="quality-dropdown" class="dropdown-content hidden">
+                            <div class="dropdown-section">
+                                <span class="section-title">Video Formats</span>
+                                <div id="video-options-list" class="options-container"></div>
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <div class="dropdown-section">
+                                <span class="section-title">Audio Formats</span>
+                                <div id="audio-options-list" class="options-container"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="download-status-container" class="status-panel hidden">
+                        <div class="progress-info">
+                            <span id="download-status-label">Downloading...</span>
+                            <span id="download-percentage">0%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div id="progress-bar-fill" class="progress-bar-fill"></div>
+                        </div>
+                    </div>
+
+                    <button id="btn-main-download" class="main-download-btn">
+                        <span>Download Now</span>
+                    </button>
+                </div>
+
+                <button id="btn-reset" class="secondary-action">
+                    <svg viewBox="0 0 24 24" width="16" height="16"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>
+                    <span>Clear Search</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- History State -->
+        <div id="state-history" class="state-view hidden">
+            <div class="history-header">
+                <h3>Download History</h3>
+                <button id="btn-clear-history" class="text-btn-danger">Clear All</button>
+            </div>
+            <div id="history-list" class="history-list">
+                <!-- Items populated by JS -->
+                <div class="empty-history">
+                    <p>No downloads yet.</p>
+                </div>
+            </div>
+            <button id="btn-history-back" class="secondary-action">
+                <svg viewBox="0 0 24 24" width="16" height="16"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+                <span>Back</span>
+            </button>
+        </div>
+    </main>
+
+    <!-- Footer / Toast Area -->
+    <footer class="app-footer">
+        <p>Made with <span class="heart">❤️</span> for you</p>
+    </footer>
+    
+    <div id="toast" class="toast-notification hidden"></div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
