@@ -73,7 +73,7 @@ def home():
         'yt_dlp_version': yt_version
     })
 
-def get_video_info(url, cookie_path=None):
+def get_video_info(url, cookie_path=None, user_agent=None):
     """Fallback to CLI for robust extraction if library fails to see all formats"""
     try:
         cmd = [
@@ -92,8 +92,9 @@ def get_video_info(url, cookie_path=None):
         if cookie_path:
              cmd.extend(['--cookies', cookie_path])
 
-        # Add user agent to minimize bot detection
-        cmd.extend(['--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'])
+        # Use provided user agent or fallback to a common one
+        ua = user_agent or 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+        cmd.extend(['--user-agent', ua])
 
         # Added 30 second timeout for metadata extraction
         result = subprocess.run(cmd, capture_output=True, text=True, check=True, encoding='utf-8', timeout=30)
@@ -118,6 +119,7 @@ def analyze():
     data = request.json
     url = data.get('url')
     cookies_list = data.get('cookies')
+    user_agent = data.get('userAgent')
     
     if not url:
         return jsonify({'error': 'No URL provided'}), 400
@@ -125,7 +127,7 @@ def analyze():
     cookie_path = _create_cookie_file(cookies_list)
 
     try:
-        info = get_video_info(url, cookie_path)
+        info = get_video_info(url, cookie_path, user_agent)
     finally:
         if cookie_path and os.path.exists(cookie_path):
             try:

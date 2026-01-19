@@ -380,10 +380,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             const cookies = await getCookies(url);
+            const userAgent = navigator.userAgent;
+
             const response = await fetch(`${BASE_URL}/analyze`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, cookies })
+                body: JSON.stringify({ url, cookies, userAgent })
             });
 
             const data = await response.json();
@@ -401,7 +403,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         } catch (err) {
             console.error(err);
-            showToast('Analysis failed. Check your connection.');
+            // Show the actual error message from the backend
+            showToast(err.message || 'Analysis failed. Check connection.');
             setState('input');
         }
     };
