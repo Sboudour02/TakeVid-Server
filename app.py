@@ -81,11 +81,14 @@ def get_video_info(url, cookie_path=None, user_agent=None):
     # Check if it's YouTube to apply specialized bypass
     is_youtube = 'youtube.com' in url or 'youtu.be' in url
     
-    # Try different client combinations if one fails
+    # Try different client combinations if one fails (2026 updated clients)
     client_configs = [
-        {'clients': 'android,web_embedded', 'ua': 'Mozilla/5.0 (Android 11; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0'},
-        {'clients': 'ios,web_embedded', 'ua': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'},
-        {'clients': 'tv,web_embedded', 'ua': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
+        # Primary: Safari-based client (most stable)
+        {'clients': 'default,-tv,web_safari,web_embedded', 'ua': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15'},
+        # Fallback 1: Mobile web client
+        {'clients': 'mweb,web_embedded', 'ua': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36'},
+        # Fallback 2: Android app client with proper UA
+        {'clients': 'android,web_embedded', 'ua': 'com.google.android.youtube/19.07.39 (Linux; U; Android 14) gzip'}
     ] if is_youtube else [{'clients': None, 'ua': user_agent}]
 
     last_error = None
@@ -364,8 +367,10 @@ def trigger_download(token):
     ]
     
     if is_youtube:
-        cmd.extend(['--extractor-args', 'youtube:player-client=ios'])
-        ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
+        cmd.extend(['--extractor-args', 'youtube:player-client=default,-tv,web_safari,web_embedded'])
+        cmd.extend(['--socket-timeout', '30'])
+        cmd.extend(['--retries', '3'])
+        ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15'
     else:
         ua = req_data.get('user_agent') or 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
     
