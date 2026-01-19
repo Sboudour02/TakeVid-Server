@@ -426,7 +426,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 format: selectedFormat.type,
                 quality: selectedFormat.height || selectedFormat.id,
                 format_id: selectedFormat.id,
-                cookies: cookies
+                cookies: cookies,
+                userAgent: navigator.userAgent
             });
 
             clearInterval(progressInterval);

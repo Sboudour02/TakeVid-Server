@@ -15,7 +15,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 format: request.format,
                 quality: request.quality,
                 format_id: request.format_id,
-                cookies: request.cookies || []
+                cookies: request.cookies || [],
+                userAgent: request.userAgent
             })
         })
             .then(response => response.json())

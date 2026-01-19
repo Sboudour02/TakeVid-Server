@@ -84,8 +84,9 @@ def get_video_info(url, cookie_path=None, user_agent=None):
             '--no-warnings',
             '--prefer-free-formats',
             '--geo-bypass',
-            '--add-header', 'Referer:https://www.tiktok.com/',
-            '--add-header', 'Origin:https://www.tiktok.com/',
+            '--extractor-args', 'youtube:player-client=ios,android,web_embedded',
+            '--add-header', 'Referer:https://www.youtube.com/',
+            '--add-header', 'Origin:https://www.youtube.com/',
             url
         ]
         
@@ -96,8 +97,8 @@ def get_video_info(url, cookie_path=None, user_agent=None):
         ua = user_agent or 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
         cmd.extend(['--user-agent', ua])
 
-        # Added 30 second timeout for metadata extraction
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True, encoding='utf-8', timeout=30)
+        # Added 40 second timeout for metadata extraction (mobile clients can be slightly slower)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True, encoding='utf-8', timeout=40)
         
         # Debug: Save output
         with open('raw_yt_output.json', 'w', encoding='utf-8') as f_debug:
@@ -274,6 +275,7 @@ def prepare_download():
             'quality': data.get('quality'),
             'format_id': data.get('format_id'),
             'cookies': data.get('cookies'),
+            'user_agent': data.get('userAgent'),
             'timestamp': time.time()
         }
         
@@ -336,6 +338,7 @@ def trigger_download(token):
         '--no-warnings',
         '--no-check-certificate',
         '--prefer-free-formats',
+        '--extractor-args', 'youtube:player-client=ios,android,web_embedded',
         url
     ]
     
@@ -345,8 +348,9 @@ def trigger_download(token):
     if fmt_type == 'audio':
         cmd.extend(['-x', '--audio-format', 'mp3'])
     
-    # Add headers to avoid bot detection
-    cmd.extend(['--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'])
+    # Use User-Agent from req_data if available (sent from client)
+    ua = req_data.get('user_agent') or 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+    cmd.extend(['--user-agent', ua])
 
     try:
         # Run download via subprocess - 5 minute timeout for download
