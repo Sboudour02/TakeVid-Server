@@ -101,9 +101,8 @@ def get_video_info(url, cookie_path=None, user_agent=None):
                 '--no-check-certificate',
                 '--no-warnings',
                 '--geo-bypass',
-                '--ignore-errors', # Continue even if some formats fail
+                '--ignore-errors',
                 '--no-check-formats',
-                url
             ]
 
             if is_youtube:
@@ -120,6 +119,9 @@ def get_video_info(url, cookie_path=None, user_agent=None):
             
             if cookie_path:
                  cmd.extend(['--cookies', cookie_path])
+            
+            # URL must be at the END of the command
+            cmd.append(url)
 
             result = subprocess.run(cmd, capture_output=True, text=True, check=True, encoding='utf-8', timeout=60)
             
