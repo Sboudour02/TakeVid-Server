@@ -367,14 +367,13 @@ def trigger_download(token):
         '--no-warnings',
         '--no-check-certificate',
         '--prefer-free-formats',
-        url
     ]
     
     if is_youtube:
-        cmd.extend(['--extractor-args', 'youtube:player-client=default,-tv,web_safari,web_embedded'])
+        cmd.extend(['--extractor-args', 'youtube:player-client=web'])
         cmd.extend(['--socket-timeout', '30'])
         cmd.extend(['--retries', '3'])
-        ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15'
+        ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
     else:
         ua = req_data.get('user_agent') or 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
     
@@ -385,6 +384,11 @@ def trigger_download(token):
         
     if fmt_type == 'audio':
         cmd.extend(['-x', '--audio-format', 'mp3'])
+    
+    # URL must be at the END of the command
+    cmd.append(url)
+    
+    print(f"DEBUG Download: client=web, url={url[:50]}...")
     
     try:
         # Run download via subprocess - 5 minute timeout for download
