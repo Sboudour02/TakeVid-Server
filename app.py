@@ -15,17 +15,18 @@ app = Flask(__name__)
 CORS(app)
 
 # --- Configuration ---
-# Check for yt-dlp in PATH, otherwise use fallback
-YT_DLP_PATH = shutil.which('yt-dlp') or r'C:\Users\hp\AppData\Local\Programs\Python\Python311\Scripts\yt-dlp.exe'
+# Check for yt-dlp in PATH, otherwise use default 'yt-dlp' command which assumes it's in the system PATH
+YT_DLP_PATH = shutil.which('yt-dlp') or 'yt-dlp'
 
 def check_yt_dlp():
     """Verify that yt-dlp is accessible."""
     try:
+        # Check version
         result = subprocess.run([YT_DLP_PATH, '--version'], capture_output=True, text=True, check=True)
         print(f"yt-dlp version verified: {result.stdout.strip()}")
         return True
     except Exception as e:
-        print(f"CRITICAL: yt-dlp not found at {YT_DLP_PATH}. Error: {e}")
+        print(f"CRITICAL: yt-dlp not found or error executing. Path: {YT_DLP_PATH}. Error: {e}")
         return False
 
 check_yt_dlp()
@@ -35,6 +36,7 @@ def _create_cookie_file(cookies):
     if not cookies:
         return None
     
+    # Use system temp directory for better cross-platform support
     fd, path = tempfile.mkstemp(suffix='.txt', text=True)
     with os.fdopen(fd, 'w', encoding='utf-8') as f:
         f.write("# Netscape HTTP Cookie File\n")
@@ -374,4 +376,5 @@ def trigger_download(token):
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)

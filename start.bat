@@ -1,6 +1,6 @@
 @echo off
-title VidGet Backend Server
-echo Starting VidGet Server...
+title TakeVid Backend Server
+echo Starting TakeVid Server...
 echo.
 
 :: Navigate to the script's directory

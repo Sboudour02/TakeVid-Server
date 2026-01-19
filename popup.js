@@ -28,6 +28,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnReset = document.getElementById('btn-reset');
     const toast = document.getElementById('toast');
 
+    // Platform Icons
+    const iconYoutube = document.getElementById('icon-youtube');
+    const iconTiktok = document.getElementById('icon-tiktok');
+    const iconFacebook = document.getElementById('icon-facebook');
+    const iconInstagram = document.getElementById('icon-instagram');
+
+    const updatePlatformIcons = (url) => {
+        if (!iconYoutube || !iconTiktok) return;
+
+        iconYoutube.classList.add('hidden');
+        iconTiktok.classList.add('hidden');
+        if (iconFacebook) iconFacebook.classList.add('hidden');
+        if (iconInstagram) iconInstagram.classList.add('hidden');
+
+        if (!url) return;
+
+        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+            iconYoutube.classList.remove('hidden');
+        } else if (url.includes('tiktok.com')) {
+            iconTiktok.classList.remove('hidden');
+        } else if (url.includes('facebook.com') || url.includes('fb.watch')) {
+            if (iconFacebook) iconFacebook.classList.remove('hidden');
+        } else if (url.includes('instagram.com')) {
+            if (iconInstagram) iconInstagram.classList.remove('hidden');
+        }
+    };
+
     // New Elements
     const btnShowHistory = document.getElementById('btn-show-history');
     const btnHeaderBack = document.getElementById('btn-header-back');
@@ -59,11 +86,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             const url = tab.url;
             const isYouTubeVideo = url.includes('youtube.com/watch') || url.includes('youtu.be/');
             const isTikTokVideo = url.includes('tiktok.com/') && (url.includes('/video/') || url.includes('/v/'));
+            const isFacebookVideo = url.includes('facebook.com') || url.includes('fb.watch');
+            const isInstagramVideo = url.includes('instagram.com');
 
-            if (isYouTubeVideo || isTikTokVideo) {
+            if (isYouTubeVideo || isTikTokVideo || isFacebookVideo || isInstagramVideo) {
                 // Video page detected directly from URL
                 if (!url.includes('/search') && !url.includes('/explore')) {
                     urlInput.value = url;
+                    updatePlatformIcons(url);
                     showToast('Video link pulled from tab!');
                 }
             } else if (url.includes('tiktok.com')) {
@@ -190,24 +220,52 @@ document.addEventListener('DOMContentLoaded', async () => {
         historyList.innerHTML = '';
 
         if (downloadHistory.length === 0) {
-            historyList.innerHTML = '<div class="empty-history"><p>No downloads yet.</p></div>';
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'empty-history';
+            const p = document.createElement('p');
+            p.textContent = 'No downloads yet.';
+            emptyDiv.appendChild(p);
+            historyList.appendChild(emptyDiv);
             return;
         }
 
         downloadHistory.forEach(item => {
             const div = document.createElement('div');
             div.className = 'history-item';
-            div.innerHTML = `
-                <img src="${item.thumbnail}" class="hist-thumb">
-                <div class="hist-info">
-                    <span class="hist-title">${item.title}</span>
-                    <div class="hist-meta">
-                        <span>${item.quality}</span>
-                        <span>•</span>
-                        <span>${item.date}</span>
-                    </div>
-                </div>
-            `;
+
+            const img = document.createElement('img');
+            img.src = item.thumbnail;
+            img.className = 'hist-thumb';
+
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'hist-info';
+
+            const titleSpan = document.createElement('span');
+            titleSpan.className = 'hist-title';
+            titleSpan.textContent = item.title;
+
+            const metaDiv = document.createElement('div');
+            metaDiv.className = 'hist-meta';
+
+            const qualitySpan = document.createElement('span');
+            qualitySpan.textContent = item.quality;
+
+            const separatorSpan = document.createElement('span');
+            separatorSpan.textContent = '•';
+
+            const dateSpan = document.createElement('span');
+            dateSpan.textContent = item.date;
+
+            metaDiv.appendChild(qualitySpan);
+            metaDiv.appendChild(separatorSpan);
+            metaDiv.appendChild(dateSpan);
+
+            infoDiv.appendChild(titleSpan);
+            infoDiv.appendChild(metaDiv);
+
+            div.appendChild(img);
+            div.appendChild(infoDiv);
+
             historyList.appendChild(div);
         });
     };
@@ -254,10 +312,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             const isHighQuality = fmt.height >= 1080;
             const qualityLabel = isHighQuality ? `${fmt.quality} ${fmt.quality.includes('2160') ? '4K' : 'HD'}` : fmt.quality;
 
-            div.innerHTML = `
-                <span class="opt-name">${qualityLabel}</span>
-                <span class="opt-size">${fmt.size_text}</span>
-            `;
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'opt-name';
+            nameSpan.textContent = qualityLabel;
+
+            const sizeSpan = document.createElement('span');
+            sizeSpan.className = 'opt-size';
+            sizeSpan.textContent = fmt.size_text;
+
+            div.appendChild(nameSpan);
+            div.appendChild(sizeSpan);
 
             div.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -276,10 +340,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (audioFormat) {
             const div = document.createElement('div');
             div.className = 'option-item';
-            div.innerHTML = `
-                <span class="opt-name">MP3 Audio</span>
-                <span class="opt-size">${audioFormat.size_text}</span>
-            `;
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'opt-name';
+            nameSpan.textContent = 'MP3 Audio';
+
+            const sizeSpan = document.createElement('span');
+            sizeSpan.className = 'opt-size';
+            sizeSpan.textContent = audioFormat.size_text;
+
+            div.appendChild(nameSpan);
+            div.appendChild(sizeSpan);
+
             div.addEventListener('click', (e) => {
                 e.stopPropagation();
                 document.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
@@ -386,6 +458,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const text = await navigator.clipboard.readText();
             if (text) {
                 urlInput.value = text;
+                updatePlatformIcons(text);
                 showToast('Link pasted!');
             } else {
                 showToast('Clipboard is empty');
@@ -409,6 +482,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     btnAnalyze.addEventListener('click', handleAnalyze);
+
+    urlInput.addEventListener('input', (e) => {
+        updatePlatformIcons(e.target.value);
+    });
+
     urlInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleAnalyze();
     });
@@ -429,6 +507,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     btnReset.addEventListener('click', () => {
         urlInput.value = '';
+        updatePlatformIcons('');
         setState('input');
     });
 
