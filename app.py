@@ -58,6 +58,21 @@ def _create_cookie_file(cookies):
                 continue
     return path
 
+@app.route('/')
+def home():
+    yt_version = "Unknown"
+    try:
+        result = subprocess.run([YT_DLP_PATH, '--version'], capture_output=True, text=True)
+        yt_version = result.stdout.strip()
+    except Exception as e:
+        yt_version = f"Error: {e}"
+    
+    return jsonify({
+        'status': 'running',
+        'yt_dlp_path': YT_DLP_PATH,
+        'yt_dlp_version': yt_version
+    })
+
 def get_video_info(url, cookie_path=None):
     """Fallback to CLI for robust extraction if library fails to see all formats"""
     try:
@@ -91,9 +106,12 @@ def get_video_info(url, cookie_path=None):
     except subprocess.TimeoutExpired:
         print(f"Timeout Error: yt-dlp took too long to analyze {url}")
         return {'error': 'Analysis timed out. Try again.'}
+    except subprocess.CalledProcessError as e:
+        print(f"CLI Error: {e.stderr}")
+        return {'error': f"Extractor Error: {e.stderr}"}
     except Exception as e:
         print(f"CLI Extraction Error: {e}")
-        return None
+        return {'error': f"System Error: {str(e)}"}
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
@@ -116,7 +134,10 @@ def analyze():
                 pass
 
     if not info:
-        return jsonify({'error': 'Could not extract video info'}), 500
+        return jsonify({'error': 'Could not extract video info (Unknown Error)'}), 500
+        
+    if 'error' in info:
+         return jsonify({'error': info['error']}), 500
 
     formats_list = info.get('formats', [])
     processed_formats = {}

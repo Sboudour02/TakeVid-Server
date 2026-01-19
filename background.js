@@ -2,7 +2,7 @@
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'download') {
-        const BASE_URL = 'http://127.0.0.1:5000';
+        const BASE_URL = 'https://takevid-server.onrender.com';
 
         // Step 1: Prepare download on server
         fetch(`${BASE_URL}/prepare_download`, {
