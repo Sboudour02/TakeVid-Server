@@ -81,14 +81,14 @@ def get_video_info(url, cookie_path=None, user_agent=None):
     # Check if it's YouTube to apply specialized bypass
     is_youtube = 'youtube.com' in url or 'youtu.be' in url
     
-    # Try different client combinations if one fails (2026 updated clients)
+    # Try different client combinations if one fails (simplified 2026 approach)
     client_configs = [
-        # Primary: Safari-based client (most stable)
-        {'clients': 'default,-tv,web_safari,web_embedded', 'ua': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15'},
-        # Fallback 1: Mobile web client
-        {'clients': 'mweb,web_embedded', 'ua': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36'},
-        # Fallback 2: Android app client with proper UA
-        {'clients': 'android,web_embedded', 'ua': 'com.google.android.youtube/19.07.39 (Linux; U; Android 14) gzip'}
+        # Primary: web client (most compatible)
+        {'clients': 'web', 'ua': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'},
+        # Fallback 1: Mobile web
+        {'clients': 'mweb', 'ua': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36'},
+        # Fallback 2: Android
+        {'clients': 'android', 'ua': 'com.google.android.youtube/19.07.39 (Linux; U; Android 14) gzip'}
     ] if is_youtube else [{'clients': None, 'ua': user_agent}]
 
     last_error = None
@@ -122,8 +122,10 @@ def get_video_info(url, cookie_path=None, user_agent=None):
             
             # URL must be at the END of the command
             cmd.append(url)
+            
+            print(f"DEBUG: Running yt-dlp with client={config.get('clients')}, cmd length={len(cmd)}")
 
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True, encoding='utf-8', timeout=60)
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True, encoding='utf-8', timeout=90)
             
             # If we got JSON, it's a success
             if result.stdout.strip():
