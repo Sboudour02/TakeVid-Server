@@ -145,8 +145,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         return new Promise((resolve) => {
             try {
                 const urlObj = new URL(url);
-                // Request cookies for the specific domain to ensure we get auth tokens
-                chrome.cookies.getAll({ domain: urlObj.hostname }, (cookies) => {
+                let domain = urlObj.hostname;
+
+                // For YouTube and TikTok, capture base domain cookies (important for auth)
+                if (domain.includes('youtube.com')) domain = '.youtube.com';
+                else if (domain.includes('tiktok.com')) domain = '.tiktok.com';
+
+                chrome.cookies.getAll({ domain: domain }, (cookies) => {
                     resolve(cookies || []);
                 });
             } catch (e) {
