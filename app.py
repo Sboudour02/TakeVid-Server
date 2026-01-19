@@ -78,57 +78,62 @@ def home():
 
 def get_video_info(url, cookie_path=None, user_agent=None):
     """Fallback to CLI for robust extraction if library fails to see all formats"""
-    try:
-        # Check if it's YouTube to apply specialized bypass
-        is_youtube = 'youtube.com' in url or 'youtu.be' in url
-        
-        cmd = [
-            YT_DLP_PATH, 
-            '--no-playlist', 
-            '--dump-json', 
-            '--no-check-certificate',
-            '--no-warnings',
-            '--prefer-free-formats',
-            '--geo-bypass',
-            url
-        ]
+    # Check if it's YouTube to apply specialized bypass
+    is_youtube = 'youtube.com' in url or 'youtu.be' in url
+    
+    # Try different client combinations if one fails
+    client_configs = [
+        {'clients': 'android,web_embedded', 'ua': 'Mozilla/5.0 (Android 11; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0'},
+        {'clients': 'ios,web_embedded', 'ua': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'},
+        {'clients': 'tv,web_embedded', 'ua': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
+    ] if is_youtube else [{'clients': None, 'ua': user_agent}]
 
-        if is_youtube:
-            # Combining ios and tv clients for maximum bypass potential
-            cmd.extend(['--extractor-args', 'youtube:player-client=ios,tv,web_embedded'])
-            # Match with a high-quality iOS header
-            ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
-        else:
-            ua = user_agent or 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
-            cmd.extend(['--add-header', 'Referer:https://www.tiktok.com/'])
-            cmd.extend(['--add-header', 'Origin:https://www.tiktok.com/'])
+    last_error = None
+    for config in client_configs:
+        try:
+            cmd = [
+                YT_DLP_PATH, 
+                '--no-playlist', 
+                '--dump-json', 
+                '--no-check-certificate',
+                '--no-warnings',
+                '--geo-bypass',
+                '--ignore-errors', # Continue even if some formats fail
+                '--no-check-formats',
+                url
+            ]
 
-        cmd.extend(['--user-agent', ua])
-        # Add common browser headers to look more legitimate
-        cmd.extend(['--add-header', 'Accept: */*'])
-        cmd.extend(['--add-header', 'Accept-Language: en-US,en;q=0.9'])
-        cmd.extend(['--add-header', 'Sec-Fetch-Mode: navigate'])
-        
-        if cookie_path:
-             cmd.extend(['--cookies', cookie_path])
+            if is_youtube:
+                cmd.extend(['--extractor-args', f'youtube:player-client={config["clients"]}'])
+                ua = config['ua']
+            else:
+                ua = config['ua'] or 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+                cmd.extend(['--add-header', 'Referer:https://www.tiktok.com/'])
+                cmd.extend(['--add-header', 'Origin:https://www.tiktok.com/'])
 
-        # Added 50 second timeout for metadata extraction
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True, encoding='utf-8', timeout=50)
-        
-        return json.loads(result.stdout)
-    except subprocess.TimeoutExpired:
-        print(f"Timeout Error: yt-dlp took too long to analyze {url}")
-        return {'error': 'Analysis timed out. YouTube is responding slowly. Please try again.'}
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr or str(e)
-        print(f"CLI Error: {error_msg}")
-        # Clean up the error message for the user
-        if "Sign in to confirm you're not a bot" in error_msg:
-            return {'error': "YouTube bot detection triggered. Try refreshing your YouTube tab and analyzing again."}
-        return {'error': f"Extractor Error: {error_msg[:200]}"}
-    except Exception as e:
-        print(f"CLI Extraction Error: {e}")
-        return {'error': f"System Error: {str(e)}"}
+            cmd.extend(['--user-agent', ua])
+            cmd.extend(['--add-header', 'Accept: */*'])
+            cmd.extend(['--add-header', 'Accept-Language: en-US,en;q=0.9'])
+            
+            if cookie_path:
+                 cmd.extend(['--cookies', cookie_path])
+
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True, encoding='utf-8', timeout=60)
+            
+            # If we got JSON, it's a success
+            if result.stdout.strip():
+                return json.loads(result.stdout)
+                
+        except Exception as e:
+            last_error = str(e)
+            if hasattr(e, 'stderr'): last_error += f" | {e.stderr}"
+            continue
+
+    # If all configs failed
+    error_msg = last_error or "Unknown error during extraction"
+    if "Sign in to confirm you're not a bot" in error_msg:
+        return {'error': "YouTube is being extra protective today. Try logging out and back in on YouTube, then refreshing this page."}
+    return {'error': f"Extraction failed: {error_msg[:200]}"}
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
