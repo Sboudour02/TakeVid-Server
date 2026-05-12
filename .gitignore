@@ -1,15 +1,67 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
 env/
 venv/
-.idea/
-.vscode/
-*.log
-raw_yt_output.json
-*.mp4
-*.mp3
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Flask
+instance/
+.webassets-cache
+
+# Temporary files
+*.tmp
 temp_*
-TakeVid_Extension.zip
+*.log
+*.cookie
+*.txt.cookie
 
-TakeVid_Extension.zip
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
 
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# Extension builds
+*.zip
+*.crx
+*.pem
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Redis
+dump.rdb
+
+# Node (if ever needed)
+node_modules/

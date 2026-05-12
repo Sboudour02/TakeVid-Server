@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TakeVid - Privacy Notice</title>
+    <style>
+        :root {
+            --primary-accent: #6c5ce7;
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 380px;
+            min-height: 400px;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            padding: 24px;
+        }
+
+        .notice-container {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(8px);
+        }
+
+        h1 {
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+            background: linear-gradient(to right, #fff, #a29bfe);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h2 {
+            font-size: 1rem;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: var(--primary-accent);
+        }
+
+        p, li {
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        ul {
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+
+        .warning {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 3px solid #ef4444;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 16px 0;
+        }
+
+        .warning p {
+            color: #fca5a5;
+            margin: 0;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-accept {
+            background: var(--primary-accent);
+            color: white;
+        }
+
+        .btn-accept:hover {
+            background: #7d6df1;
+            transform: translateY(-2px);
+        }
+
+        .btn-decline {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--glass-border);
+        }
+
+        .btn-decline:hover {
+            background: var(--glass-bg);
+        }
+    </style>
+</head>
+<body>
+    <div class="notice-container">
+        <h1>🔒 Privacy Notice</h1>
+        
+        <p>Welcome to TakeVid! Before you start, please understand how we handle your data:</p>
+
+        <h2>What We Collect:</h2>
+        <ul>
+            <li><strong>Cookies:</strong> Essential session cookies from YouTube/TikTok to access age-restricted or private videos</li>
+            <li><strong>Video URLs:</strong> The links you paste are sent to our server for analysis</li>
+            <li><strong>Download History:</strong> Stored locally on your device only</li>
+            <li><strong>User Agent:</strong> Your browser information for compatibility</li>
+        </ul>
+
+        <h2>Why We Need This:</h2>
+        <p>Cookies are necessary to bypass platform restrictions and download videos that require authentication. Without them, many videos won't be accessible.</p>
+
+        <div class="warning">
+            <p><strong>⚠️ Important:</strong> Your cookies are sent to our secure server only for video extraction. We never store, share, or sell your data. Cookies are deleted immediately after processing.</p>
+        </div>
+
+        <h2>Your Rights:</h2>
+        <ul>
+            <li>You can disable cookie sending in settings (some videos may not work)</li>
+            <li>You can clear your download history anytime</li>
+            <li>You can uninstall the extension to remove all local data</li>
+        </ul>
+
+        <p style="margin-top: 20px;"><strong>Legal Notice:</strong> This extension is for personal use only. Downloading copyrighted content may violate platform Terms of Service. Use responsibly.</p>
+
+        <div class="buttons">
+            <button class="btn-accept" id="btn-accept">I Understand & Accept</button>
+            <button class="btn-decline" id="btn-decline">Decline</button>
+        </div>
+    </div>
+
+    <script src="privacy-notice.js"></script>
+</body>
+</html>

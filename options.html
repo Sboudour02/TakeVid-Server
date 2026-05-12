@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TakeVid - Settings</title>
+    <link rel="stylesheet" href="popup.css">
+    <style>
+        body {
+            width: 600px;
+            min-height: 500px;
+            padding: 32px;
+        }
+
+        .settings-header {
+            margin-bottom: 32px;
+        }
+
+        .settings-header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+        }
+
+        .settings-section {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .settings-section h2 {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            color: var(--primary-accent);
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+
+        .setting-info {
+            flex: 1;
+        }
+
+        .setting-info h3 {
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+        }
+
+        .setting-info p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: 0.3s;
+            border-radius: 34px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--primary-accent);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .btn-save {
+            width: 100%;
+            background: var(--primary-accent);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 14px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-save:hover {
+            transform: translateY(-2px);
+            background: #7d6df1;
+        }
+
+        .quality-select {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-container">
+        <div class="settings-header">
+            <h1>⚙️ Settings</h1>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Customize your TakeVid experience</p>
+        </div>
+
+        <div class="settings-section">
+            <h2>Privacy & Security</h2>
+            
+            <div class="setting-item">
+                <div class="setting-info">
+                    <h3>Send Cookies</h3>
+                    <p>Allow sending cookies to access age-restricted videos (recommended)</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="setting-cookies" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <h3>Save Download History</h3>
+                    <p>Keep a local record of your downloads</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="setting-history" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h2>Download Preferences</h2>
+            
+            <div class="setting-item">
+                <div class="setting-info">
+                    <h3>Default Quality</h3>
+                    <p>Automatically select this quality when analyzing</p>
+                </div>
+                <select class="quality-select" id="setting-quality">
+                    <option value="ask">Ask each time</option>
+                    <option value="2160p">4K (2160p)</option>
+                    <option value="1440p">QHD (1440p)</option>
+                    <option value="1080p">Full HD (1080p)</option>
+                    <option value="720p">HD (720p)</option>
+                    <option value="480p">SD (480p)</option>
+                </select>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <h3>Auto-Download Subtitles</h3>
+                    <p>Include subtitles/captions when downloading videos</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="setting-subtitles">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h2>Advanced</h2>
+            
+            <div class="setting-item">
+                <div class="setting-info">
+                    <h3>Server URL</h3>
+                    <p>Backend server endpoint (default: Render)</p>
+                </div>
+                <input type="text" id="setting-server" class="quality-select" style="width: 250px;" value="https://takevid-server.onrender.com">
+            </div>
+        </div>
+
+        <button class="btn-save" id="btn-save">Save Settings</button>
+
+        <div style="margin-top: 20px; text-align: center;">
+            <button onclick="window.open('privacy-notice.html')" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; text-decoration: underline;">
+                View Privacy Policy
+            </button>
+        </div>
+    </div>
+
+    <div id="toast" class="toast-notification hidden"></div>
+
+    <script src="options.js"></script>
+</body>
+</html>

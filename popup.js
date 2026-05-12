@@ -1,6 +1,66 @@
-const BASE_URL = 'https://takevid-server.onrender.com';
+// Get server URL from settings
+let BASE_URL = 'https://takevid-server.onrender.com';
+chrome.storage.sync.get('serverURL', (data) => {
+    if (data.serverURL) BASE_URL = data.serverURL;
+});
+
+// URL Validation
+const ALLOWED_DOMAINS = [
+    'youtube.com', 'youtu.be', 'tiktok.com',
+    'facebook.com', 'fb.watch', 'instagram.com'
+];
+
+const isValidVideoURL = (url) => {
+    try {
+        const urlObj = new URL(url);
+        if (!['http:', 'https:'].includes(urlObj.protocol)) {
+            return false;
+        }
+        const hostname = urlObj.hostname.toLowerCase();
+        return ALLOWED_DOMAINS.some(domain =>
+            hostname === domain || hostname.endsWith('.' + domain)
+        );
+    } catch {
+        return false;
+    }
+};
 
 document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        // Check if user has accepted privacy notice
+        let privacyNoticeAccepted = false;
+        try {
+            const result = await chrome.storage.local.get('privacyNoticeAccepted');
+            privacyNoticeAccepted = !!result.privacyNoticeAccepted;
+        } catch (err) {
+            console.error('Error checking privacy notice:', err);
+        }
+
+        if (!privacyNoticeAccepted) {
+            try {
+                await chrome.windows.create({
+                    url: 'privacy-notice.html',
+                    type: 'popup',
+                    width: 420,
+                    height: 600
+                });
+            } catch (err) {
+                console.error('Error opening privacy notice:', err);
+            }
+        }
+    } catch (err) {
+        console.error('Critical error in DOMContentLoaded:', err);
+    }
+
+    // Check if there's a pending URL from context menu
+    let pendingURL = null;
+    try {
+        const result = await chrome.storage.local.get('pendingURL');
+        pendingURL = result.pendingURL;
+    } catch (err) {
+        console.error('Error getting pendingURL:', err);
+    }
+
     // State Containers
     const stateInput = document.getElementById('state-input');
     const stateLoading = document.getElementById('state-loading');
@@ -79,87 +139,85 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Auto-pull URL from active tab (Only if it looks like a video)
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tab = tabs[0];
-        if (tab && tab.url) {
-            const url = tab.url;
-            const isYouTubeVideo = url.includes('youtube.com/watch') || url.includes('youtu.be/');
-            const isTikTokVideo = url.includes('tiktok.com/') && (url.includes('/video/') || url.includes('/v/'));
-            const isFacebookVideo = url.includes('facebook.com') || url.includes('fb.watch');
-            const isInstagramVideo = url.includes('instagram.com');
+    // Get URL from current tab FIRST, then fall back to pendingURL
+    const initializeUrl = async () => {
+        try {
+            const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+            const tab = tabs[0];
 
-            if (isYouTubeVideo || isTikTokVideo || isFacebookVideo || isInstagramVideo) {
-                // Video page detected directly from URL
-                if (!url.includes('/search') && !url.includes('/explore')) {
-                    urlInput.value = url;
-                    updatePlatformIcons(url);
-                    showToast('Video link pulled from tab!');
-                }
-            } else if (url.includes('tiktok.com')) {
-                // If on TikTok feed (home/explore), try to find the visible video link from DOM
-                showToast('Scanning feed for video...');
-                chrome.scripting.executeScript({
-                    target: { tabId: tab.id },
-                    func: () => {
-                        // Find all potential video links
-                        const videoLinks = Array.from(document.querySelectorAll('a[href*="/video/"]'));
+            if (tab && tab.url) {
+                const url = tab.url;
+                const isYouTubeVideo = url.includes('youtube.com/watch') || url.includes('youtu.be/') || url.includes('youtube.com/shorts');
+                const isTikTokVideo = url.includes('tiktok.com/') && (url.includes('/video/') || url.includes('/v/') || url.includes('/@'));
+                const isFacebookVideo = (url.includes('facebook.com') && (url.includes('/watch') || url.includes('/reel') || url.includes('/videos/'))) || url.includes('fb.watch');
+                const isInstagramVideo = url.includes('instagram.com') && (url.includes('/reel') || url.includes('/p/'));
 
-                        let bestLink = null;
-                        let minDistance = Infinity;
-                        const viewportCenter = window.innerHeight / 2;
-
-                        for (const link of videoLinks) {
-                            const rect = link.getBoundingClientRect();
-                            // Skip hidden elements (width=0 usually implies hidden or barely visible)
-                            if (rect.width === 0 || rect.height === 0) continue;
-
-                            // Calculate center of the element
-                            const elementCenter = rect.top + (rect.height / 2);
-                            // Distance from viewport center
-                            const distance = Math.abs(viewportCenter - elementCenter);
-
-                            // We consider it "in view" if it's somewhat close to center
-                            if (distance < minDistance) {
-                                minDistance = distance;
-                                bestLink = link;
-                            }
+                if (isYouTubeVideo || isTikTokVideo || isFacebookVideo || isInstagramVideo) {
+                    if (!url.includes('/search') && !url.includes('/explore')) {
+                        if (urlInput) {
+                            urlInput.value = url;
+                            updatePlatformIcons(url);
+                            showToast('Current video detected!');
+                            await chrome.storage.local.remove('pendingURL');
+                            return;
                         }
-                        return bestLink ? bestLink.href : null;
                     }
-                }, (results) => {
-                    if (results && results[0] && results[0].result) {
+                }
+            }
+
+            if (pendingURL) {
+                if (urlInput) {
+                    urlInput.value = pendingURL;
+                    updatePlatformIcons(pendingURL);
+                    showToast('Video link from context menu!');
+                }
+                await chrome.storage.local.remove('pendingURL');
+                return;
+            }
+
+            // Try to extract from TikTok feed
+            if (tab && tab.url && tab.url.includes('tiktok.com')) {
+                showToast('Scanning feed for video...');
+                try {
+                    const results = await chrome.scripting.executeScript({
+                        target: { tabId: tab.id },
+                        func: () => {
+                            const videoLinks = Array.from(document.querySelectorAll('a[href*="/video/"]'));
+                            let bestLink = null;
+                            let minDistance = Infinity;
+                            const viewportCenter = window.innerHeight / 2;
+
+                            for (const link of videoLinks) {
+                                const rect = link.getBoundingClientRect();
+                                if (rect.width === 0 || rect.height === 0) continue;
+                                const elementCenter = rect.top + (rect.height / 2);
+                                const distance = Math.abs(viewportCenter - elementCenter);
+                                if (distance < minDistance) {
+                                    minDistance = distance;
+                                    bestLink = link;
+                                }
+                            }
+                            return bestLink ? bestLink.href : null;
+                        }
+                    });
+
+                    if (results && results[0] && results[0].result && urlInput) {
                         urlInput.value = results[0].result;
+                        updatePlatformIcons(results[0].result);
                         showToast('Video found in feed!');
-                    } else {
-                        // Fallback check: Look for the TikTok video element itself?
-                        // Usually links are enough. If failed, just notify user.
-                        // showToast('No video found. Open specific video.');
                     }
-                });
+                } catch (e) {
+                    // TikTok feed scan can fail silently
+                }
             }
+        } catch (err) {
+            console.error('Error in initializeUrl:', err);
         }
-    });
-
-    const getCookies = (url) => {
-        return new Promise((resolve) => {
-            try {
-                const urlObj = new URL(url);
-                let domain = urlObj.hostname;
-
-                // For YouTube and TikTok, capture base domain cookies (important for auth)
-                if (domain.includes('youtube.com')) domain = '.youtube.com';
-                else if (domain.includes('tiktok.com')) domain = '.tiktok.com';
-
-                chrome.cookies.getAll({ domain: domain }, (cookies) => {
-                    resolve(cookies || []);
-                });
-            } catch (e) {
-                console.warn("Cookie fetch error:", e);
-                resolve([]);
-            }
-        });
     };
+
+    // Initialize URL
+    initializeUrl();
+
 
     const showToast = (text, duration = 3000) => {
         toast.textContent = text;
@@ -177,7 +235,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const setState = (state) => {
-        [stateInput, stateLoading, stateResult, stateHistory].forEach(el => el.classList.add('hidden'));
+        [stateInput, stateLoading, stateResult, stateHistory].forEach(el => {
+            if (el) el.classList.add('hidden');
+        });
 
         let target;
         switch (state) {
@@ -188,22 +248,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             default: target = stateInput;
         }
 
-        target.classList.remove('hidden');
-        // Simple entry animation
-        target.animate([
-            { opacity: 0, transform: 'translateY(10px)' },
-            { opacity: 1, transform: 'translateY(0)' }
-        ], { duration: 300, easing: 'ease-out' });
+        if (target) {
+            target.classList.remove('hidden');
+            try {
+                target.animate([
+                    { opacity: 0, transform: 'translateY(10px)' },
+                    { opacity: 1, transform: 'translateY(0)' }
+                ], { duration: 300, easing: 'ease-out' });
+            } catch (e) {
+                // Animation not supported in some contexts
+            }
+        }
 
         // Toggle Header Back Button
-        if (state === 'input') {
-            btnHeaderBack.classList.add('hidden');
-        } else {
-            btnHeaderBack.classList.remove('hidden');
+        if (btnHeaderBack) {
+            if (state === 'input') {
+                btnHeaderBack.classList.add('hidden');
+            } else {
+                btnHeaderBack.classList.remove('hidden');
+            }
         }
     };
 
     const saveToHistory = async (videoData, format) => {
+        const { saveHistory } = await chrome.storage.sync.get({ saveHistory: true });
+        if (!saveHistory) return;
+
         const historyItem = {
             id: Date.now(),
             title: videoData.title,
@@ -215,9 +285,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         const { downloadHistory = [] } = await chrome.storage.local.get('downloadHistory');
-        // Keep last 10 items
-        const newHistory = [historyItem, ...downloadHistory].slice(0, 10);
+        const newHistory = [historyItem, ...downloadHistory].slice(0, 20);
         await chrome.storage.local.set({ downloadHistory: newHistory });
+
+        // Auto-cleanup old items (> 30 days)
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        const filtered = newHistory.filter(item => item.timestamp > thirtyDaysAgo);
+        if (filtered.length !== newHistory.length) {
+            await chrome.storage.local.set({ downloadHistory: filtered });
+        }
     };
 
     const renderHistory = async () => {
@@ -276,43 +352,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const animateProgress = () => {
-        let progress = 0;
         downloadStatusContainer.classList.remove('hidden');
         btnMainDownload.classList.add('hidden');
 
-        const interval = setInterval(() => {
-            if (progress >= 95) {
-                clearInterval(interval);
-                return;
-            }
-            progress += Math.random() * 5;
-            if (progress > 95) progress = 95;
+        progressBarFill.style.width = '100%';
+        progressBarFill.style.animation = 'indeterminate-progress 1.5s ease-in-out infinite';
+        downloadPercentage.textContent = '';
 
-            progressBarFill.style.width = `${progress}%`;
-            downloadPercentage.textContent = `${Math.round(progress)}%`;
-        }, 800);
-
-        return interval;
+        return null;
     };
 
     const resetProgress = () => {
         progressBarFill.style.width = '0%';
-        downloadPercentage.textContent = '0%';
+        progressBarFill.style.animation = '';
+        downloadPercentage.textContent = '';
         downloadStatusContainer.classList.add('hidden');
         btnMainDownload.classList.remove('hidden');
     };
 
-    const populateOptions = (formats) => {
+    const populateOptions = async (formats) => {
         videoOptionsList.innerHTML = '';
         audioOptionsList.innerHTML = '';
 
         const videoFormats = formats.filter(f => f.type === 'video');
         const audioFormat = formats.find(f => f.type === 'audio');
 
+        // Get user's default quality preference
+        const { defaultQuality } = await chrome.storage.sync.get({ defaultQuality: 'ask' });
+        let defaultIndex = 0;
+
+        if (defaultQuality !== 'ask') {
+            const matchIndex = videoFormats.findIndex(f => f.quality.includes(defaultQuality));
+            if (matchIndex !== -1) defaultIndex = matchIndex;
+        }
+
         videoFormats.forEach((fmt, index) => {
             const div = document.createElement('div');
             div.className = 'option-item';
-            if (index === 0) div.classList.add('selected');
 
             const isHighQuality = fmt.height >= 1080;
             const qualityLabel = isHighQuality ? `${fmt.quality} ${fmt.quality.includes('2160') ? '4K' : 'HD'}` : fmt.quality;
@@ -338,8 +414,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             videoOptionsList.appendChild(div);
 
-            // Default select the best quality
-            if (index === 0) updateSelectedFormat(fmt);
+            // FIX: Only mark the defaultIndex item as selected (not always index 0)
+            if (index === defaultIndex) {
+                div.classList.add('selected');
+                updateSelectedFormat(fmt);
+            }
         });
 
         if (audioFormat) {
@@ -374,6 +453,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         selectedSizeText.textContent = fmt.size_text;
     };
 
+    // FIX: Use background script for analysis instead of direct fetch (unified cookie handling + retry logic)
     const handleAnalyze = async () => {
         const url = urlInput.value.trim();
         if (!url) {
@@ -381,35 +461,53 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        if (!isValidVideoURL(url)) {
+            showToast('Invalid URL. Only YouTube, TikTok, Facebook, Instagram supported.', 5000);
+            return;
+        }
+
         setState('loading');
 
         try {
-            const cookies = await getCookies(url);
-            const userAgent = navigator.userAgent;
-
-            const response = await fetch(`${BASE_URL}/analyze`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, cookies, userAgent })
+            // Use background script which has unified cookie handling + retry logic
+            const response = await chrome.runtime.sendMessage({
+                action: 'analyzeVideo',
+                url: url,
+                userAgent: navigator.userAgent
             });
 
-            const data = await response.json();
-            if (data.error) throw new Error(data.error);
-            if (data.info && data.info.error) throw new Error(data.info.error);
+            if (!response || !response.success) {
+                throw new Error((response && response.error) || 'Analysis failed');
+            }
 
+            const data = response.data;
             currentVideoData = data;
-            videoThumb.src = data.thumbnail;
-            videoTitle.textContent = data.title;
-            videoUploader.textContent = data.uploader || 'Unknown Creator';
-            videoDuration.textContent = formatDuration(data.duration);
+
+            // Update UI with null checks
+            if (videoThumb) videoThumb.src = data.thumbnail || '';
+            if (videoTitle) videoTitle.textContent = data.title || 'Unknown Video';
+            if (videoUploader) videoUploader.textContent = data.uploader || 'Unknown Creator';
+            if (videoDuration) videoDuration.textContent = formatDuration(data.duration);
 
             populateOptions(data.formats);
             setState('result');
 
         } catch (err) {
-            console.error(err);
-            // Show the actual error message from the backend
-            showToast(err.message || 'Analysis failed. Check connection.');
+            console.error('Analysis error:', err);
+
+            let userMessage = 'Analysis failed.';
+
+            if (err.name === 'AbortError' || (err.message && err.message.includes('abort'))) {
+                userMessage = 'Server is taking too long. Please try again.';
+            } else if (err.message && err.message.includes('Extension context invalidated')) {
+                userMessage = 'Extension was updated. Please close and reopen this popup.';
+            } else if (err.message && err.message.includes('Server error')) {
+                userMessage = 'Server is having issues. Please try again in a moment.';
+            } else if (err.message) {
+                userMessage = err.message;
+            }
+
+            showToast(userMessage, 5000);
             setState('input');
         }
     };
@@ -418,11 +516,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!selectedFormat || !currentVideoData) return;
 
         downloadStatusLabel.textContent = 'Preparing...';
-        const progressInterval = animateProgress();
+        animateProgress();
 
         try {
-            const cookies = await getCookies(currentVideoData.webpage_url);
-
             downloadStatusLabel.textContent = 'Downloading...';
 
             const response = await chrome.runtime.sendMessage({
@@ -431,15 +527,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 format: selectedFormat.type,
                 quality: selectedFormat.height || selectedFormat.id,
                 format_id: selectedFormat.id,
-                cookies: cookies,
                 userAgent: navigator.userAgent
             });
 
-            clearInterval(progressInterval);
+            downloadStatusLabel.textContent = 'Starting browser download...';
 
             if (response && response.success) {
+                progressBarFill.style.animation = '';
                 progressBarFill.style.width = '100%';
-                downloadPercentage.textContent = '100%';
                 downloadStatusLabel.textContent = 'Completed!';
 
                 showToast('Download started!');
@@ -450,96 +545,138 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }, 2000);
             } else {
                 resetProgress();
-                showToast(response.error || 'Download error');
+                showToast((response && response.error) || 'Download error', 5000);
             }
         } catch (err) {
-            clearInterval(progressInterval);
             resetProgress();
-            console.error(err);
-            showToast('Error: ' + (err.message || 'Communication error'));
+
+            let errorMsg = 'Download error';
+            if (err.message) {
+                errorMsg = err.message.includes('Extension context invalidated')
+                    ? 'Extension was updated. Please close and reopen this popup.'
+                    : err.message;
+            }
+
+            showToast(errorMsg, 5000);
         }
     };
 
+    // Validate critical elements exist
+    if (!btnAnalyze) {
+        console.error('CRITICAL: btn-analyze element not found!');
+    }
+    if (!urlInput) {
+        console.error('CRITICAL: url-input element not found!');
+    }
+
     // Event Listeners
-    btnPaste.addEventListener('click', async () => {
-        urlInput.focus();
-        try {
-            const text = await navigator.clipboard.readText();
-            if (text) {
-                urlInput.value = text;
-                updatePlatformIcons(text);
-                showToast('Link pasted!');
-            } else {
-                showToast('Clipboard is empty');
-            }
-        } catch (err) {
-            console.error('navigator.clipboard error:', err);
-            // Fallback for older browsers or specific security contexts
+    if (btnPaste) {
+        btnPaste.addEventListener('click', async () => {
+            if (urlInput) urlInput.focus();
             try {
-                urlInput.select();
-                const success = document.execCommand('paste');
-                if (success) {
+                const text = await navigator.clipboard.readText();
+                if (text && urlInput) {
+                    urlInput.value = text;
+                    updatePlatformIcons(text);
                     showToast('Link pasted!');
                 } else {
-                    throw new Error('execCommand paste failed');
+                    showToast('Clipboard is empty');
                 }
-            } catch (fallbackErr) {
-                console.error('Paste fallback failed:', fallbackErr);
-                showToast('Manual paste needed (Ctrl+V)');
+            } catch (err) {
+                showToast('Please paste manually (Ctrl+V)', 4000);
+                if (urlInput) urlInput.focus();
             }
-        }
-    });
+        });
+    }
 
-    btnAnalyze.addEventListener('click', handleAnalyze);
+    if (btnAnalyze) {
+        btnAnalyze.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // FIX: properly handle async errors with .catch()
+            handleAnalyze().catch(err => {
+                console.error('Unhandled error in handleAnalyze:', err);
+                showToast('An unexpected error occurred', 5000);
+                setState('input');
+            });
+        });
+    }
 
-    urlInput.addEventListener('input', (e) => {
-        updatePlatformIcons(e.target.value);
-    });
+    if (urlInput) {
+        urlInput.addEventListener('input', (e) => {
+            updatePlatformIcons(e.target.value);
+        });
 
-    urlInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleAnalyze();
-    });
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleAnalyze().catch(err => {
+                    console.error('Unhandled error in handleAnalyze:', err);
+                });
+            }
+        });
+    }
 
-    btnDropdownToggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        qualityDropdown.classList.toggle('hidden');
-    });
+    if (btnDropdownToggle && qualityDropdown) {
+        btnDropdownToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            qualityDropdown.classList.toggle('hidden');
+        });
+    }
 
     document.addEventListener('click', () => {
-        qualityDropdown.classList.add('hidden');
+        if (qualityDropdown) qualityDropdown.classList.add('hidden');
     });
 
-    btnMainDownload.addEventListener('click', (e) => {
-        e.stopPropagation();
-        handleDownload();
-    });
+    if (btnMainDownload) {
+        btnMainDownload.addEventListener('click', (e) => {
+            e.stopPropagation();
+            handleDownload().catch(err => {
+                console.error('Unhandled error in handleDownload:', err);
+            });
+        });
+    }
 
-    btnReset.addEventListener('click', () => {
-        urlInput.value = '';
-        updatePlatformIcons('');
-        setState('input');
-    });
+    if (btnReset) {
+        btnReset.addEventListener('click', () => {
+            if (urlInput) urlInput.value = '';
+            updatePlatformIcons('');
+            setState('input');
+        });
+    }
 
-    btnShowHistory.addEventListener('click', () => setState('history'));
-    btnHistoryBack.addEventListener('click', () => setState(currentVideoData ? 'result' : 'input'));
+    if (btnShowHistory) {
+        btnShowHistory.addEventListener('click', () => setState('history'));
+    }
+
+    if (btnHistoryBack) {
+        btnHistoryBack.addEventListener('click', () => setState(currentVideoData ? 'result' : 'input'));
+    }
+
+    // Settings button
+    const btnSettings = document.getElementById('btn-settings');
+    if (btnSettings) {
+        btnSettings.addEventListener('click', () => {
+            chrome.runtime.openOptionsPage();
+        });
+    }
 
     // Header Back Button Logic
-    btnHeaderBack.addEventListener('click', () => {
-        // If we are in history, go back to where we were (result or input)
-        if (!stateHistory.classList.contains('hidden')) {
-            setState(currentVideoData ? 'result' : 'input');
-        } else {
-            // Default back to input
-            setState('input');
-            // reset logic if needed
-            currentVideoData = null; // Clear session if we go fully back? 
-            // Maybe keep data if they just want to analyze another link
-        }
-    });
+    if (btnHeaderBack) {
+        btnHeaderBack.addEventListener('click', () => {
+            if (stateHistory && !stateHistory.classList.contains('hidden')) {
+                setState(currentVideoData ? 'result' : 'input');
+            } else {
+                // Go back to input but keep data so user can re-analyze
+                setState('input');
+            }
+        });
+    }
 
-    btnClearHistory.addEventListener('click', async () => {
-        await chrome.storage.local.set({ downloadHistory: [] });
-        renderHistory();
-        showToast('History cleared');
-    });
+    if (btnClearHistory) {
+        btnClearHistory.addEventListener('click', async () => {
+            await chrome.storage.local.set({ downloadHistory: [] });
+            renderHistory();
+            showToast('History cleared');
+        });
+    }
 });
