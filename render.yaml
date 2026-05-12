@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: takevid-server
+    region: oregon
+    plan: free
+    branch: main
+    repo: https://github.com/Sboudour02/TakeVid-Server.git
+    buildCommand: pip install -r requirements.txt && pip install --no-cache-dir -U yt-dlp
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
